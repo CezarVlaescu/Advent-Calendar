@@ -1,38 +1,20 @@
-# Little December — lista de verificare pentru publicare
+# Little December v1.2 — Checklist înainte de publicare 🎄
 
-## 1. Supabase (o singură dată)
-- [ ] Alege un proiect Supabase separat pentru Advent (nu modifica magazinul de lumânări).
-- [ ] Execută `supabase/schema.sql` în SQL Editor.
-- [ ] Execută `supabase/verify.sql`: `anon_is_admin=false`, `future_doors_visible_to_anon=0`.
-- [ ] Creează în `Authentication > Users` utilizatorul administrator cu emailul și parola ta.
-- [ ] În SQL Editor, atribuie dreptul de admin:
-  ```sql
-  insert into public.admin_users(user_id)
-  select id from auth.users where email='EMAILUL_TAU@EXEMPLU.RO'
-  on conflict do nothing;
-  ```
-- [ ] Copiază **Project URL** și cheia **publishable** / `anon` (NICIODATĂ service_role/secret).
+- [ ] Node.js 22.13+ instalat; `npm install` și `npm test` funcționează.
+- [ ] `npm run dev:demo` afișează designul dorit.
+- [ ] Repository-ul GitHub creat, fără parole sau fișiere `.env` comise.
+- [ ] Proiect nou Netlify conectat la repository.
+- [ ] Două variabile în Netlify: `ADVENT_ADMIN_PASSWORD` (16+ caractere) și `ADVENT_SESSION_SECRET` (32+ caractere), fără prefix `VITE_`.
+- [ ] `ADVENT_YEAR`/`VITE_ADVENT_YEAR` setate la `2026` dacă este nevoie.
+- [ ] `npm run build` și deploy Netlify fără erori.
+- [ ] API-ul `/.netlify/functions/advent?action=calendar` răspunde cu `serverDate` și `items`.
+- [ ] Te poți autentifica în Admin cu parola din Netlify și poți salva o surpriză.
+- [ ] Fotografiile se pot încărca, afișa în Admin și elimina din surpriză.
+- [ ] Mod incognito: surprizele pentru zilele viitoare NU sunt disponibile prin API, nici fotografiile.
+- [ ] Verifică la data reală de 1 decembrie că doar ușița 1 este accesibilă (pe baza datei de server).
+- [ ] Testează pe telefon real, cu browser neautentificat.
+- [ ] Nu trimite parola de Admin partenerei. Folosește Logout când ai terminat editarea.
+- [ ] Verifică **Usage & billing** pe Netlify după publicare, pentru a rămâne în limitele planului gratuit.
+- [ ] După sărbători: fă backup la Blob JSON și fotografii înainte de arhivarea/ștergerea site-ului.
 
-## 2. Pe calculator
-- [ ] Copiază `.env.example` în `.env` și completează `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-- [ ] Lasă `VITE_ADVENT_YEAR=2026`; personalizează `VITE_PERSON_NAME`, `VITE_FROM_NAME`.
-- [ ] `npm install`, `npm test`, `npm run build`, `npm run dev`.
-- [ ] Intră în `/#admin`, loghează-te și salvează o surpriză pentru o zi viitoare.
-- [ ] În mod Admin, folosește butonul de preview; asigură-te că vedeți mesaje și poze.
-
-## 3. Netlify
-- [ ] Creează un repo GitHub **privat** cu proiectul (fără `.env`).
-- [ ] Importă repo-ul în Netlify. Build: `npm run build`, publish: `dist` (`netlify.toml` deja le definește).
-- [ ] Setează în Netlify, la Environment variables: aceleași 5 variabile `VITE_...` din `.env`.
-- [ ] Re-deploy după setarea variabilelor.
-- [ ] În Supabase Authentication -> URL Configuration adaugă adresa Netlify la Site URL / Redirect URLs pentru fluxurile de email.
-- [ ] Testează într-o fereastră incognito pe telefon: înainte de 1 decembrie, toate ușile sunt blocate.
-- [ ] Testează schimbarea manuală a datei telefonului: ușile viitoare trebuie să rămână blocate.
-- [ ] Testează că nu se văd texte și imagini viitoare într-un browser fără autentificare.
-
-## 4. Pe 1 decembrie 2026
-- [ ] Pregătește cel puțin surpriza de la ușa 1.
-- [ ] Verifică după 00:00 **Europe/Bucharest** că doar ziua 1 este nou disponibilă.
-- [ ] Trimite-i linkul. 💜
-
-> Notă: modul demo nu este destinat publicării. Pozele viitoare sunt protejate prin Storage RLS și SQL. `noindex` reduce indexarea, dar nu limitează accesul la link. Contul admin rămâne privat.
+**Notă:** Un preview Admin cu zile viitoare este permis doar după autentificare și nu schimbă data serverului. Publicul vede exclusiv zilele ajunse în calendar.

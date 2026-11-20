@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import {
-  CALENDAR_YEAR, FROM_NAME, IS_DEMO, MEDIA_BUCKET, PERSON_NAME, TYPES,
+  CALENDAR_YEAR, FROM_NAME, IS_DEMO, PERSON_NAME, TYPES,
   emptySurprise, markOpened, nextUnlockText, readDemo, readOpened,
-  romanianNow, serverDateToZoned, supabase, todayDoor, unlocked, writeDemo,
+  romanianNow, serverDateToZoned, todayDoor, unlocked, writeDemo,
   type Surprise, type SurpriseType, type ZonedDate
 } from './data';
 
@@ -106,17 +106,16 @@ function Header({ onNavigate, route }: { onNavigate: (route: Route) => void; rou
 }
 
 type AdminProps = {
-  items: Surprise[]; isAdmin: boolean; userEmail: string | undefined; error: string;
-  onLogin: (email:string, password:string)=>Promise<void>;
+  items: Surprise[]; isAdmin: boolean; error: string;
+  onLogin: (password:string)=>Promise<void>;
   onLogout: ()=>Promise<void>;
   onSave: (value: Surprise)=>Promise<void>;
   onUpload: (file: File, day: number)=>Promise<string>;
   onPreview: (day:number)=>void;
 };
-function Admin({ items, isAdmin, userEmail, error, onLogin, onLogout, onSave, onUpload, onPreview }: AdminProps) {
+function Admin({ items, isAdmin, error, onLogin, onLogout, onSave, onUpload, onPreview }: AdminProps) {
   const [day, setDay] = useState(1);
   const [draft, setDraft] = useState<Surprise>(()=>items.find(s=>s.day===1) || emptySurprise(1));
-  const [email,setEmail] = useState('');
   const [password,setPassword] = useState('');
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
@@ -125,219 +124,46 @@ function Admin({ items, isAdmin, userEmail, error, onLogin, onLogout, onSave, on
 
   useEffect(() => { setDraft(items.find(item=>item.day===day) || emptySurprise(day)); }, [day,items]);
   const update = <K extends keyof Surprise>(key: K, value: Surprise[K]) => setDraft(prev=>({...prev,[key]:value}));
-  const login = async (event:FormEvent) => {
-    event.preventDefault(); setBusy(true);setSavingError('');
-    try { await onLogin(email,password); }
-    catch (e) { setSavingError(e instanceof Error ? e.message : 'Nu s-a putut autentifica.'); }
-    finally { setBusy(false); }
-  };
-  const save = async (event:FormEvent) => {
-    event.preventDefault();setBusy(true);setSavingError('');setNotice('');
-    try {
-      if (empty(draft.title) || empty(draft.message)) throw new Error('Completează titlul și mesajul surprizei.');
-      if (draft.type === 'quiz' && (empty(draft.quiz_question) || draft.quiz_options.some(empty))) throw new Error('Completează întrebarea și toate variantele quiz-ului.');
-      await onSave(draft);setNotice(`Surpriza pentru ${day} decembrie a fost salvată! 💜`);
-    } catch(e) {setSavingError(e instanceof Error ? e.message : 'Salvarea a eșuat.');}
-    finally {setBusy(false);}
-  };
-  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setSavingError('');setNotice('');setUploading(true);
-    try { const path = await onUpload(file,day);update('image_path',path);setNotice('Fotografia este încărcată. Apasă „Salvează surpriza” pentru a o păstra.'); }
-    catch(e) {setSavingError(e instanceof Error ? e.message : 'Încărcarea a eșuat.');}
-    finally {setUploading(false);event.target.value='';}
-  };
-
-  if (!isAdmin) return <main className="admin-login container">
-    <div className="login-illustration">🔐</div><div className="eyebrow dark">ACCES PRIVAT</div>
-    <h1>Atelierul de <em>surprize</em></h1><p>Doar tu poți pregăti ce se ascunde în spatele ușițelor.</p>
-    <form className="login-form" onSubmit={login}>
-      <label>Email administrator<input required type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@exemplu.ro" /></label>
-      <label>Parolă<input required type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Parola contului Supabase" /></label>
-      {(savingError || error) && <div className="error-note">{savingError || error}</div>}
-      <button disabled={busy} className="primary-button" type="submit">{busy ? 'Se verifică…' : 'Intră în panoul secret'} <Icon name="arrow" size={18}/></button>
-    </form>
-    {userEmail && <div className="error-note">Contul {userEmail} este conectat, dar nu are drepturi de administrator. Adaugă-l în `admin_users` (vezi README).</div>}
-  </main>;
-
-  const done = new Set(items.filter(item=>item.title.trim() && item.message.trim()).map(item=>item.day));
-  return <main className="admin-main container">
-    <div className="admin-heading"><div><div className="eyebrow dark">BACKSTAGE · DOAR PENTRU TINE</div><h1>Atelierul de <em>surprize</em> ✨</h1><p>Tu pregătești magia, ea descoperă câte puțin în fiecare zi.</p></div>
-      {!IS_DEMO && <button className="secondary-button" onClick={()=>void onLogout()}>Ieși din cont</button>}
-    </div>
-    {IS_DEMO && <div className="demo-notice">🧪 <strong>Mod demo local.</strong> Schimbările se păstrează doar în acest browser. Pentru un link real, configurează Supabase conform README.</div>}
-    {error && <div className="error-note">{error}</div>}
-    <div className="admin-layout">
-      <aside className="admin-sidebar">
-        <div className="sidebar-title">UȘIȚELE TALE <span>{done.size}/24 pregătite</span></div>
-        <div className="day-picker">{Array.from({length:24},(_,i)=>i+1).map(number=><button
-          key={number} className={`day-picker-button ${number===day?'active':''} ${done.has(number)?'has-content':''}`}
-          onClick={()=>{setDay(number);setNotice('');setSavingError('');}} aria-label={`Editează ziua ${number}`}>{number}{done.has(number)&&<span>•</span>}</button>)}</div>
-        <div className="sidebar-tip">💡 Poți modifica oricând o surpriză. Până în ziua deblocării, ea nu poate vedea conținutul.</div>
-        <button className="preview-button" onClick={()=>onPreview(day)}>👀 Vezi calendarul ca în {day} decembrie <Icon name="arrow" size={16}/></button>
-      </aside>
-      <form className="editor-card" onSubmit={save}>
-        <div className="editor-head"><div><span className="editor-kicker">PREGĂTEȘTE SURPRIZA</span><h2>Ziua {String(day).padStart(2,'0')} <span>💌</span></h2></div><span className="editor-status">{done.has(day) ? '✓ pregătită' : '○ necompletată'}</span></div>
-        <div className="field"><label htmlFor="surprise-type">Tipul surprizei</label><div className="type-picker">{TYPES.map(t=><button key={t.value} type="button" className={`type-option ${draft.type===t.value?'selected':''}`} onClick={()=>update('type',t.value)}><span>{t.icon}</span><small>{t.label}</small></button>)}</div></div>
-        <div className="field"><label htmlFor="surprise-title">Titlu</label><input id="surprise-title" maxLength={90} placeholder="Ex.: Un voucher pentru o seară perfectă" value={draft.title} onChange={e=>update('title',e.target.value)}/></div>
-        <div className="field"><label htmlFor="surprise-message">Mesajul tău</label><textarea id="surprise-message" rows={5} placeholder="Scrie aici ce vrei să găsească în spatele ușiței…" value={draft.message} onChange={e=>update('message',e.target.value)} /></div>
-        <div className="field"><label>Fotografie (opțională)</label><label className="upload-zone"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} disabled={uploading}/><span className="upload-icon">📷</span><span>{uploading ? 'Se încarcă…' : draft.image_path ? 'Fotografie încărcată · poți alege alta' : 'Apasă pentru a încărca o fotografie'}</span><small>JPG, PNG, WEBP · maximum 5 MB</small></label>{draft.image_path&&<button type="button" className="text-button" onClick={()=>update('image_path',null)}>Elimină fotografia din surpriză</button>}</div>
-        {draft.type==='quiz' && <div className="quiz-editor"><div className="field"><label>Întrebarea quiz-ului</label><input value={draft.quiz_question} onChange={e=>update('quiz_question',e.target.value)} placeholder="Ce alegem într-o seară de vineri?" /></div>
-          {draft.quiz_options.map((option,index)=><div className="field" key={index}><label>Răspuns {index+1}{index===draft.quiz_correct_index?' · corect ✓':''}</label><div className="answer-editor"><input value={option} onChange={e=>update('quiz_options',draft.quiz_options.map((v,i)=>i===index?e.target.value:v))}/><button type="button" className={`correct-answer ${index===draft.quiz_correct_index?'active':''}`} onClick={()=>update('quiz_correct_index',index)} aria-label={`Marchează răspunsul ${index+1} drept corect`} title="Marchează ca răspuns corect"><Icon name="check" size={16}/></button></div></div>)}
-          <p className="field-help">Apasă pe bifa din dreptul răspunsului corect.</p>
-        </div>}
-        {savingError && <div className="error-note">{savingError}</div>}
-        {notice && <div className="success-note">{notice}</div>}
-        <div className="editor-actions"><span>💜 O surpriză mică poate face o zi mare.</span><button type="submit" className="primary-button" disabled={busy || uploading}>{busy?'Se salvează…':'Salvează surpriza'} <Icon name="check" size={17}/></button></div>
-      </form>
-    </div>
-  </main>;
-}
-
-export default function App() {
-  const [route,setRoute] = useState<Route>(location.hash.startsWith('#admin') ? 'admin' : 'calendar');
-  const [items,setItems] = useState<Surprise[]>(IS_DEMO ? readDemo() : []);
-  const [images,setImages] = useState<Record<string,string>>({});
-  const [opened,setOpened] = useState<number[]>(readOpened());
-  const [now,setNow] = useState<ZonedDate>(romanianNow());
-  // În producție doar data returnată de PostgreSQL poate debloca o ușiță.
-  const [serverDate,setServerDate] = useState<string | null>(null);
-  const lastServerDate = useRef<string | null>(null);
-  const [previewDay,setPreviewDay] = useState<number | null>(null);
-  const [modalDay,setModalDay] = useState<number | null>(null);
-  const [authUser,setAuthUser] = useState<string | undefined>();
-  const [isAdmin,setIsAdmin] = useState(IS_DEMO);
-  const [loading,setLoading] = useState(!IS_DEMO);
-  const [error,setError] = useState('');
-  const previousDate = useRef(`${now.year}-${now.month}-${now.day}`);
-
-  const reload = useCallback(async () => {
-    if (!supabase) { setItems(readDemo());setLoading(false); return; }
-    try {
-      const { data: serverDay, error: clockError } = await supabase.rpc('advent_server_date');
-      if (clockError || typeof serverDay !== 'string' || !serverDateToZoned(serverDay, romanianNow())) {
-        throw new Error('Nu putem verifica data cu serverul. Verifică instalarea SQL și conexiunea.');
-      }
-      lastServerDate.current = serverDay;
-      setServerDate(serverDay);
-      const { data: auth, error: authError } = await supabase.auth.getUser();
-      if (authError && authError.name !== 'AuthSessionMissingError') throw authError;
-      setAuthUser(auth.user?.email);
-      let admin = false;
-      if (auth.user) {
-        const { data: role, error: roleError } = await supabase.from('admin_users').select('user_id').eq('user_id',auth.user.id).maybeSingle();
-        if (roleError) throw roleError;
-        admin = Boolean(role);
-      }
-      setIsAdmin(admin);
-      const { data, error: listError } = await supabase.from('doors').select('*').eq('year',CALENDAR_YEAR).order('day');
-      if (listError) throw listError;
-      const result = (data || []) as Surprise[];
-      setItems(result);
-      setError('');
-      const resolved = await Promise.all(result.filter(item=>item.image_path).map(async item=>{
-        const { data: signed, error: signError } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(item.image_path!,3600);
-        return [item.image_path!,signError?'':(signed?.signedUrl||'')] as const;
-      }));
-      setImages(Object.fromEntries(resolved));
-    } catch (e) {
-      lastServerDate.current = null; // Reîncearcă încărcarea și după o eroare tranzitorie.
-      setServerDate(null);setItems([]);setImages({});
-      setError(e instanceof Error ? e.message : 'Eroare la încărcarea calendarului.');
-    }
-    finally {setLoading(false);}
-  },[]);
-
-  useEffect(()=>{
-    void reload();
-    if (!supabase) return;
-    const { data: listener } = supabase.auth.onAuthStateChange(()=>{setTimeout(()=>{void reload();},0);});
-    return ()=>listener.subscription.unsubscribe();
-  },[reload]);
-  useEffect(()=>{
-    const change = ()=>setRoute(location.hash.startsWith('#admin')?'admin':'calendar');
-    addEventListener('hashchange',change);
-    return ()=>removeEventListener('hashchange',change);
-  },[]);
-  useEffect(()=>{
-    const timer = setInterval(()=>{
-      const current=romanianNow();setNow(current);
-      const dateKey=`${current.year}-${current.month}-${current.day}`;
-      if (dateKey!==previousDate.current) {previousDate.current=dateKey;if (IS_DEMO) void reload();}
-    },30000);
-    return ()=>clearInterval(timer);
-  },[reload]);
-
-  // Sincronizare periodică. Telefonul poate avea o oră falsă; serverul rămâne autoritatea.
-  useEffect(() => {
-    if (!supabase) return;
-    const poll = async () => {
-      const { data, error: clockError } = await supabase.rpc('advent_server_date');
-      if (clockError || typeof data !== 'string' || !serverDateToZoned(data, romanianNow())) {
-        lastServerDate.current = null;
-        setServerDate(null); // fail-closed: toate ușile se încuie până revine serverul
-        return;
-      }
-      if (lastServerDate.current !== data) { lastServerDate.current = data; await reload(); }
-      else setServerDate(data);
-    };
-    const timer = window.setInterval(() => { void poll(); }, 15000);
-    const onFocus = () => { void poll(); };
-    window.addEventListener('focus',onFocus);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus',onFocus); };
-  },[reload]);
-
-  const go = (r:Route) => {location.hash=r==='admin'?'admin':'calendar';setRoute(r);window.scrollTo({top:0,behavior:'smooth'});};
-  const trustedDate = IS_DEMO ? now : (serverDateToZoned(serverDate || '', now) || {year:0,month:1,day:1,hour:0,minute:0,second:0});
-  const testDate:ZonedDate = previewDay!==null && isAdmin ? {year:CALENDAR_YEAR,month:12,day:previewDay,hour:12,minute:0,second:0}:trustedDate;
-  const available = useMemo(()=>Array.from({length:24},(_,i)=>i+1).filter(day=>unlocked(day,testDate)),[testDate.year,testDate.month,testDate.day]);
-  const today = todayDoor(testDate);
-  const openedAvailable = opened.filter(day=>available.includes(day)).length;
-  const progress = Math.round(openedAvailable / 24 * 100);
-  const openDoor = (day:number) => {
-    if (!unlocked(day,testDate)) return;
-    setModalDay(day);
-    setOpened(markOpened(day));
-  };
-  const login = async (email:string,password:string) => {
-    if (!supabase) return;
-    const {error:loginError} = await supabase.auth.signInWithPassword({email,password});
-    if(loginError) throw loginError;
+  const login = async (password:string) => {
+    if (IS_DEMO) return;
+    await api('login', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ password }) });
     await reload();
   };
   const logout = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();setPreviewDay(null);await reload();
+    if (IS_DEMO) return;
+    await api('logout', { method:'POST' });
+    setPreviewDay(null);setModalDay(null);await reload();
   };
   const save = async (item:Surprise) => {
-    if (supabase) {
+    if (!IS_DEMO) {
       if (!isAdmin) throw new Error('Nu ai drepturi de administrator.');
-      const { error:saveError } = await supabase.from('doors').upsert(item,{onConflict:'year,day'});
-      if(saveError) throw saveError;
+      await api('save', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(item) });
       await reload();
-    } else {const next = [...items.filter(s=>s.day!==item.day),item].sort((a,b)=>a.day-b.day);writeDemo(next);setItems(next);}
+    } else {
+      const next = [...items.filter(s => s.day !== item.day), item].sort((a,b) => a.day-b.day);
+      writeDemo(next);setItems(next);
+    }
   };
   const upload = async (file:File,day:number):Promise<string> => {
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Alege o imagine JPG, PNG sau WEBP.');
-    if(file.size>5*1024*1024) throw new Error('Fotografia nu poate depăși 5 MB.');
-    if(supabase) {
-      if(!isAdmin) throw new Error('Nu ai drepturi de administrator.');
-      const extension=file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path=`${CALENDAR_YEAR}/day-${day}/${crypto.randomUUID()}.${extension}`;
-      const { error:uploadError } = await supabase.storage.from(MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type});
-      if(uploadError) throw uploadError;
-      const {data:signed,error:signError}=await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path,3600);
-      if(signError) throw signError;
-      setImages(prev=>({...prev,[path]:signed.signedUrl}));
-      return path;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) throw new Error('Alege o imagine JPG, PNG sau WEBP.');
+    if (file.size > 5*1024*1024) throw new Error('Fotografia nu poate depăși 5 MB.');
+    if (!IS_DEMO) {
+      if (!isAdmin) throw new Error('Nu ai drepturi de administrator.');
+      const body = new FormData();body.append('file',file);body.append('day',String(day));
+      const {image_path} = await api<{image_path:string}>('upload',{method:'POST',body});
+      setImages(prev => ({...prev,[image_path]:`/.netlify/functions/advent?action=image&key=${encodeURIComponent(image_path)}`}));
+      return image_path;
     }
-    if(file.size>1024*1024) throw new Error('În modul demo local, fotografia trebuie să fie sub 1 MB.');
-    return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const data=String(reader.result);setImages(prev=>({...prev,[data]:data}));resolve(data);};reader.onerror=()=>reject(new Error('Imaginea nu poate fi citită.'));reader.readAsDataURL(file);});
+    if (file.size > 1024*1024) throw new Error('În modul demo local, fotografia trebuie să fie sub 1 MB.');
+    return await new Promise((resolve,reject) => {
+      const reader=new FileReader();reader.onload=()=>{
+        const data=String(reader.result);setImages(prev=>({...prev,[data]:data}));resolve(data);
+      };reader.onerror=()=>reject(new Error('Imaginea nu poate fi citită.'));reader.readAsDataURL(file);
+    });
   };
 
   return <><Snowfall/><Header route={route} onNavigate={go}/>
-    {route==='admin' ? <Admin items={items} isAdmin={isAdmin} userEmail={authUser} error={error} onLogin={login} onLogout={logout} onSave={save} onUpload={upload} onPreview={day=>{setPreviewDay(day);go('calendar');}}/> : <main>
+    {route==='admin' ? <Admin items={items} isAdmin={isAdmin} error={error} onLogin={login} onLogout={logout} onSave={save} onUpload={upload} onPreview={day=>{setPreviewDay(day);go('calendar');}}/> : <main>
       {IS_DEMO && <div className="demo-ribbon container">🧪 Demo local · Surprizele se salvează doar pe acest dispozitiv. <button onClick={()=>go('admin')}>Editează-le aici →</button></div>}
       {previewDay!==null && isAdmin && <div className="preview-ribbon container"><span>👀 MOD PREVIZUALIZARE · {previewDay} DECEMBRIE</span><button onClick={()=>setPreviewDay(null)}>Ieși din preview ✕</button></div>}
       <section className="hero container">
@@ -354,7 +180,7 @@ export default function App() {
         <div className="calendar-topline"><div><div className="eyebrow dark"><span>✦</span> UN CADOU PE ZI</div><h2>Calendarul nostru <em>magic</em></h2><p>Fiecare ușiță își deschide secretul doar când îi vine ziua. <span>Nu trișa! 😉</span></p></div>
           <div className="progress-box"><div className="progress-info"><span>💜 Surprize descoperite</span><strong>{openedAvailable} <small>/ 24</small></strong></div><div className="progress-track"><div className="progress-fill" style={{width:`${progress}%`}}/></div></div></div>
         {loading ? <div className="loading-calendar">Se pregătește magia… ✨</div> : <>
-          {!IS_DEMO && !serverDate && !error && <div className="error-note">Conexiunea cu serverul de timp este indisponibilă. Ușile rămân închise până la reconectare.</div>}
+          {!IS_DEMO && !serverDate && !error && <div className="error-note">Conexiunea cu Netlify este indisponibilă. Ușile rămân închise până la reconectare.</div>}
           {error && <div className="error-note">Nu am putut încărca surprizele: {error}. Verifică configurarea din README.</div>}
           <div className="doors-grid">{Array.from({length:24},(_,i)=>i+1).map(day=>{
             const open=available.includes(day);

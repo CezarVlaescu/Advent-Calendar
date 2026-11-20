@@ -1,4 +1,3 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { unlocked as doorUnlocked, todayDoor as calendarTodayDoor, nextUnlockText as countdownText } from './calendarLogic';
 export { romanianNow, serverDateToZoned } from './calendarLogic';
 export type { ZonedDate } from './calendarLogic';
@@ -20,12 +19,7 @@ export type Surprise = {
 export const CALENDAR_YEAR = Number(import.meta.env.VITE_ADVENT_YEAR || 2026);
 export const PERSON_NAME = import.meta.env.VITE_PERSON_NAME || 'iubirea mea';
 export const FROM_NAME = import.meta.env.VITE_FROM_NAME || 'cu drag, de la mine';
-export const MEDIA_BUCKET = 'advent-private';
-
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
-export const supabase: SupabaseClient | null = url && anon ? createClient(url, anon) : null;
-export const IS_DEMO = !supabase;
+export const IS_DEMO = import.meta.env.VITE_LOCAL_DEMO === 'true';
 const DEMO_KEY = `advent-surprises-${CALENDAR_YEAR}`;
 const OPENED_KEY = `advent-opened-${CALENDAR_YEAR}`;
 
